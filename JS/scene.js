@@ -14,6 +14,7 @@ class GameScene extends Phaser.Scene {
      Ciclo de vida
      --------------------------------------------------------- */
   create() {
+    Sound.unlock();
     createGemTextures(this);
     this.gemColors = GEM_STYLES.map(s => hexToInt(s.color));
 
@@ -235,6 +236,7 @@ class GameScene extends Phaser.Scene {
   async introBuild() {
     const gen = this.gen;
     this.busy = true;
+    Sound.start();
     await this.buildSprites(true);
     if (gen !== this.gen) return;
     this.busy = false;
@@ -306,6 +308,7 @@ class GameScene extends Phaser.Scene {
   }
 
   onPointerDown(p) {
+    Sound.unlock();
     if (!this.canAct()) return;
     const cell = this.cellAt(p.x, p.y);
     if (!cell) return;
@@ -320,6 +323,7 @@ class GameScene extends Phaser.Scene {
     const dy = p.y - d.y;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < this.cell * 0.35) return;
     d.done = true;
+    Sound.unlock();
     const target = Math.abs(dx) > Math.abs(dy)
       ? { r: d.cell.r, c: d.cell.c + Math.sign(dx) }
       : { r: d.cell.r + Math.sign(dy), c: d.cell.c };
@@ -380,6 +384,7 @@ class GameScene extends Phaser.Scene {
      Entrada: teclado y mando (los llama controls.js)
      --------------------------------------------------------- */
   moveCursor(dr, dc) {
+    Sound.unlock();
     if (!this.canAct()) return;
     this.touch();
     this.cursorVisible = true;
@@ -398,6 +403,7 @@ class GameScene extends Phaser.Scene {
   }
 
   activate() {
+    Sound.unlock();
     if (!this.canAct()) return;
     this.cursorVisible = true;
     this.tapCell(this.cursor);

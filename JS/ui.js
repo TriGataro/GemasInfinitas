@@ -162,8 +162,21 @@ const UI = (() => {
     buildThemeButtons();
     applyTheme(Store.get('theme', 'neon'));
     updateMuteButton();
-    document.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
-    document.addEventListener('keydown', () => Sound.unlock(), { once: true });
+
+    // Desbloqueo universal de audio en la primera interacción (táctil, clic o teclado)
+    const unlockAudio = () => {
+      Sound.unlock();
+      if (Sound.isRunning()) {
+        ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown', 'click'].forEach((ev) => {
+          window.removeEventListener(ev, unlockAudio, true);
+          document.removeEventListener(ev, unlockAudio, true);
+        });
+      }
+    };
+    ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown', 'click'].forEach((ev) => {
+      window.addEventListener(ev, unlockAudio, { capture: true, passive: true });
+      document.addEventListener(ev, unlockAudio, { capture: true, passive: true });
+    });
 
     game.events.on('stats', onStats);
     game.events.on('scene-ready', () => {

@@ -171,6 +171,7 @@ function createGemTextures(scene) {
     ctx.scale(gemScale, gemScale);
     drawGem(ctx, style);
     tex.refresh();
+    tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
   });
 
   // Chispa para partículas
@@ -189,5 +190,6 @@ function createGemTextures(scene) {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, sparkSize, sparkSize);
     tex.refresh();
+    tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
   }
 }

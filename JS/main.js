@@ -13,6 +13,13 @@
     antialias: true,
     roundPixels: false,
     resolution: Math.min(window.devicePixelRatio || 1, 3),
+    render: {
+      antialias: true,
+      antialiasGL: true,
+      roundPixels: false,
+      mipmapFilter: 'LINEAR',
+      powerPreference: 'high-performance'
+    },
     scale: {
       mode: Phaser.Scale.RESIZE,
       width: '100%',

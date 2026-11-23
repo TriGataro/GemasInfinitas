@@ -1,0 +1,6 @@
+# Archivos y carpetas ocultos
+.*
+!.gitignore
+
+# Carpeta de agentes
+.agents/

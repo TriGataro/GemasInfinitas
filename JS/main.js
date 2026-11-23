@@ -10,6 +10,9 @@
     parent: 'game',
     transparent: true,
     disableContextMenu: true,
+    antialias: true,
+    roundPixels: false,
+    resolution: Math.min(window.devicePixelRatio || 1, 3),
     scale: {
       mode: Phaser.Scale.RESIZE,
       width: '100%',

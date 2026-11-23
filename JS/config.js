@@ -5,6 +5,8 @@
 const GAME_CONFIG = Object.freeze({
   ROWS: 8,                 // filas del tablero
   COLS: 8,                 // columnas del tablero
+  GEM_TEXTURE_SIZE: 256,   // textura de alta resolución para pantallas móviles
+  SPARK_TEXTURE_SIZE: 64,  // textura de partículas de alta resolución
   BASE_TYPES: 5,           // tipos de gema al empezar
   MAX_TYPES: 6,            // tipos de gema máximos
   POINTS_PER_LEVEL: 1500,  // puntos para subir de nivel (el nivel no tiene tope)

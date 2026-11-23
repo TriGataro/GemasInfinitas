@@ -200,6 +200,7 @@ body::after {
 #game canvas {
   display: block;
   touch-action: none;
+  image-rendering: auto;
 }
 
 .footer {

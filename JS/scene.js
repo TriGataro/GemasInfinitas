@@ -76,7 +76,7 @@ class GameScene extends Phaser.Scene {
     this.cell = Math.max(20, Math.floor(size));
     this.ox = Math.floor((w - this.cell * GAME_CONFIG.COLS) / 2);
     this.oy = Math.floor((h - this.cell * GAME_CONFIG.ROWS) / 2);
-    this.gemScale = (this.cell * 0.88) / 128;
+    this.gemScale = (this.cell * 0.88) / GAME_CONFIG.GEM_TEXTURE_SIZE;
 
     this.drawBoard();
 
@@ -599,7 +599,7 @@ class GameScene extends Phaser.Scene {
       const dist = this.cell * (0.5 + Math.random() * 0.6);
       const sp = this.add.image(x, y, 'spark')
         .setTint(color).setDepth(30).setBlendMode(Phaser.BlendModes.ADD)
-        .setScale((this.cell / 32) * (0.5 + Math.random() * 0.5));
+        .setScale((this.cell / GAME_CONFIG.SPARK_TEXTURE_SIZE) * (0.5 + Math.random() * 0.5));
       this.tweens.add({
         targets: sp,
         x: x + Math.cos(a) * dist,

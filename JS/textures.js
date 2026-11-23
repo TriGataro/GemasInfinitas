@@ -157,24 +157,37 @@ function drawGem(ctx, style) {
 
 /** Crea las texturas 'gem0'...'gemN' y 'spark' en el gestor de texturas de Phaser. */
 function createGemTextures(scene) {
+  const gemSize = GAME_CONFIG.GEM_TEXTURE_SIZE;
+  const gemScale = gemSize / 128;
+  const sparkSize = GAME_CONFIG.SPARK_TEXTURE_SIZE;
+
   GEM_STYLES.forEach((style, i) => {
     const key = 'gem' + i;
     if (scene.textures.exists(key)) return;
-    const tex = scene.textures.createCanvas(key, 128, 128);
-    drawGem(tex.getContext(), style);
+    const tex = scene.textures.createCanvas(key, gemSize, gemSize);
+    const ctx = tex.getContext();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.scale(gemScale, gemScale);
+    drawGem(ctx, style);
     tex.refresh();
   });
 
   // Chispa para partículas
   if (!scene.textures.exists('spark')) {
-    const tex = scene.textures.createCanvas('spark', 32, 32);
+    const tex = scene.textures.createCanvas('spark', sparkSize, sparkSize);
     const ctx = tex.getContext();
-    const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    const g = ctx.createRadialGradient(
+      sparkSize / 2, sparkSize / 2, 0,
+      sparkSize / 2, sparkSize / 2, sparkSize / 2
+    );
     g.addColorStop(0, 'rgba(255,255,255,1)');
     g.addColorStop(0.4, 'rgba(255,255,255,0.7)');
     g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 32, 32);
+    ctx.fillRect(0, 0, sparkSize, sparkSize);
     tex.refresh();
   }
 }

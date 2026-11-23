@@ -68,94 +68,99 @@ function traceShape(ctx, shape) {
   ctx.closePath();
 }
 
-/** Dibuja una gema completa en un contexto 2D de 128x128. */
-function drawGem(ctx, style, options = {}) {
-  const mobile = options.mobile === true;
-  const highlightOpacity = mobile ? 0.42 : 0.68;
-  const pointOpacity = mobile ? 0.72 : 0.92;
-  const borderWidth = mobile ? 6 : 8;
-  const facetStrength = mobile ? 0.72 : 1;
+/** Dibuja una gema nueva, limpia y nítida para pantallas móviles. */
+function drawGem(ctx, style) {
   ctx.clearRect(0, 0, 128, 128);
   ctx.save();
   ctx.translate(64, 64);
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
 
-  // Sombra suave bajo la gema para darle volumen real.
+  // Sombra corta y suave: evita bordes grises difusos al reducirse.
   ctx.save();
-  ctx.translate(3, 12);
-  ctx.scale(1, 0.32);
-  const shadow = ctx.createRadialGradient(0, 0, 4, 0, 0, 58);
-  shadow.addColorStop(0, 'rgba(0,0,0,0.48)');
-  shadow.addColorStop(0.65, 'rgba(0,0,0,0.22)');
+  ctx.translate(2, 9);
+  ctx.scale(1, 0.24);
+  const shadow = ctx.createRadialGradient(0, 0, 4, 0, 0, 54);
+  shadow.addColorStop(0, 'rgba(0,0,0,0.32)');
+  shadow.addColorStop(0.72, 'rgba(0,0,0,0.12)');
   shadow.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = shadow;
   ctx.beginPath();
-  ctx.arc(0, 0, 58, 0, Math.PI * 2);
+  ctx.arc(0, 0, 54, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  // Resplandor exterior controlado por el color de cada gema.
+  // Color principal con una luz superior suave y un borde oscuro compacto.
   traceShape(ctx, style.shape);
-  ctx.save();
-  ctx.translate(0, 4);
-  ctx.fillStyle = mobile ? 'rgba(0,0,0,0.28)' : 'rgba(0,0,0,0.38)';
-  ctx.fill();
-  ctx.restore();
-
-  // Cuerpo con luz radial y profundidad central.
-  traceShape(ctx, style.shape);
-  const grad = ctx.createRadialGradient(-24, -28, 2, 8, 12, 70);
-  grad.addColorStop(0, mobile ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.95)');
-  grad.addColorStop(0.09, shadeColor(style.color, 0.72));
-  grad.addColorStop(0.38, shadeColor(style.color, 0.18));
-  grad.addColorStop(0.76, style.color);
-  grad.addColorStop(1, shadeColor(style.color, -0.48));
-  ctx.fillStyle = grad;
+  const body = ctx.createRadialGradient(-20, -24, 3, 6, 10, 68);
+  body.addColorStop(0, shadeColor(style.color, 0.88));
+  body.addColorStop(0.22, shadeColor(style.color, 0.38));
+  body.addColorStop(0.68, style.color);
+  body.addColorStop(1, shadeColor(style.color, -0.28));
+  ctx.fillStyle = body;
   ctx.fill();
 
-  // Facetas translúcidas que imitan cortes de cristal.
+  // Tres facetas grandes dan volumen sin crear ruido visual.
   ctx.save();
   ctx.clip();
-  const facets = [
-    { pts: [[-52, -42], [0, -58], [-10, -8]], fill: `rgba(255,255,255,${0.30 * facetStrength})` },
-    { pts: [[0, -58], [52, -38], [10, -8]], fill: `rgba(255,255,255,${0.10 * facetStrength})` },
-    { pts: [[52, -38], [54, 38], [10, 8]], fill: `rgba(0,0,0,${0.10 * facetStrength})` },
-    { pts: [[54, 38], [0, 58], [10, 8]], fill: `rgba(255,255,255,${0.07 * facetStrength})` },
-    { pts: [[0, 58], [-54, 38], [-10, 8]], fill: `rgba(0,0,0,${0.16 * facetStrength})` },
-    { pts: [[-54, 38], [-52, -42], [-10, -8]], fill: `rgba(255,255,255,${0.12 * facetStrength})` },
-    { pts: [[-10, -8], [10, -8], [10, 8], [-10, 8]], fill: `rgba(255,255,255,${0.18 * facetStrength})` }
-  ];
-  facets.forEach((facet) => {
-    ctx.beginPath();
-    facet.pts.forEach((pt, i) => i === 0 ? ctx.moveTo(pt[0], pt[1]) : ctx.lineTo(pt[0], pt[1]));
-    ctx.closePath();
-    ctx.fillStyle = facet.fill;
-    ctx.fill();
-  });
+
+  ctx.beginPath();
+  ctx.moveTo(-52, -42);
+  ctx.lineTo(0, -58);
+  ctx.lineTo(-8, -4);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.20)';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(0, -58);
+  ctx.lineTo(52, -38);
+  ctx.lineTo(8, -4);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(52, -38);
+  ctx.lineTo(54, 38);
+  ctx.lineTo(8, 8);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,0,0,0.10)';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(-54, 38);
+  ctx.lineTo(-52, -42);
+  ctx.lineTo(-8, -4);
+  ctx.lineTo(-8, 8);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fill();
   ctx.restore();
 
-  // Borde oscuro y resaltado interior.
+  // Contorno limpio: exterior oscuro fino y brillo interior claro.
   traceShape(ctx, style.shape);
-  ctx.lineWidth = borderWidth;
-  ctx.strokeStyle = shadeColor(style.color, mobile ? -0.48 : -0.58);
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = shadeColor(style.color, -0.42);
   ctx.stroke();
 
   traceShape(ctx, style.shape);
-  ctx.lineWidth = mobile ? 2 : 3;
-  ctx.strokeStyle = mobile ? 'rgba(255,255,255,0.38)' : 'rgba(255,255,255,0.48)';
+  ctx.lineWidth = 1.25;
+  ctx.strokeStyle = 'rgba(255,255,255,0.42)';
   ctx.stroke();
 
-  // Destello grande y punta de luz pequeña.
-  ctx.fillStyle = `rgba(255,255,255,${highlightOpacity})`;
+  // Un solo brillo pequeño y contenido evita el aspecto quemado.
+  ctx.save();
+  ctx.globalAlpha = 0.48;
+  ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  ctx.ellipse(-18, -26, 19, 8, -0.58, 0, Math.PI * 2);
+  ctx.ellipse(-20, -27, 13, 5.5, -0.55, 0, Math.PI * 2);
   ctx.fill();
-
-  ctx.fillStyle = `rgba(255,255,255,${pointOpacity})`;
+  ctx.globalAlpha = 0.82;
   ctx.beginPath();
-  ctx.arc(-27, -34, 3.2, 0, Math.PI * 2);
+  ctx.arc(-28, -35, 2.2, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
 
   ctx.restore();
 }
@@ -165,8 +170,6 @@ function createGemTextures(scene) {
   const gemSize = GAME_CONFIG.GEM_TEXTURE_SIZE;
   const gemScale = gemSize / 128;
   const sparkSize = GAME_CONFIG.SPARK_TEXTURE_SIZE;
-  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   GEM_STYLES.forEach((style, i) => {
     const key = 'gem' + i;
@@ -176,7 +179,7 @@ function createGemTextures(scene) {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.scale(gemScale, gemScale);
-    drawGem(ctx, style, { mobile });
+    drawGem(ctx, style);
     tex.refresh();
     tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
   });

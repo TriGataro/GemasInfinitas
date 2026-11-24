@@ -197,8 +197,14 @@ body::after {
   min-height: 0;
   overflow: hidden;
 }
+/* El canvas interno es de alta densidad (CSS px × dpr); aquí se fuerza a ocupar
+   exactamente el contenedor para que cada píxel del canvas sea un píxel físico */
 #game canvas {
+  position: absolute;
+  inset: 0;
   display: block;
+  width: 100% !important;
+  height: 100% !important;
   touch-action: none;
   image-rendering: auto;
 }

@@ -15,7 +15,6 @@ class GameScene extends Phaser.Scene {
      --------------------------------------------------------- */
   create() {
     Sound.unlock();
-    createGemTextures(this);
     this.gemColors = GEM_STYLES.map(s => hexToInt(s.color));
 
     this.board = new Board(GAME_CONFIG.ROWS, GAME_CONFIG.COLS);
@@ -72,12 +71,20 @@ class GameScene extends Phaser.Scene {
   layout() {
     const w = this.scale.width;
     const h = this.scale.height;
-    const pad = 8;
+    // El canvas se dibuja en píxeles reales de pantalla (CSS px × dpr)
+    const dpr = this.dpr = getGameDpr();
+    const pad = 8 * dpr;
     const size = Math.min((w - pad * 2) / GAME_CONFIG.COLS, (h - pad * 2) / GAME_CONFIG.ROWS);
-    this.cell = Math.max(20, Math.floor(size));
+    // Casilla y gema con tamaño PAR: los centros caen en píxeles enteros (sin medios píxeles borrosos)
+    this.cell = Math.max(20 * dpr, Math.floor(size / 2) * 2);
     this.ox = Math.floor((w - this.cell * GAME_CONFIG.COLS) / 2);
     this.oy = Math.floor((h - this.cell * GAME_CONFIG.ROWS) / 2);
-    this.gemScale = (this.cell * 0.88) / GAME_CONFIG.GEM_TEXTURE_SIZE;
+    this.gemPx = Math.min(GAME_CONFIG.MAX_GEM_TEXTURE, Math.max(32, Math.round(this.cell * 0.44) * 2));
+    // Escala 1:1 (nítido); solo se reescala si se alcanzó el tope de la textura
+    this.gemScale = this.gemPx >= GAME_CONFIG.MAX_GEM_TEXTURE ? (this.cell * 0.88) / this.gemPx : 1;
+
+    // Texturas generadas al tamaño real en pantalla (1 px de textura = 1 px de pantalla)
+    createGemTextures(this, this.gemPx);
 
     this.drawBoard();
 
@@ -85,12 +92,22 @@ class GameScene extends Phaser.Scene {
       for (let c = 0; c < this.sprites[r].length; c++) {
         const sp = this.sprites[r][c];
         if (!sp) continue;
+        sp.setTexture(gemTextureKey(sp.gemType, this.gemPx));
         const p = this.cellPos(r, c);
         sp.setPosition(p.x, p.y);
         sp.setScale(this.gemScale);
       }
     }
     this.drawSelection();
+    this.purgeOldTextures();
+  }
+
+  /** Elimina las texturas de gemas de tamaños anteriores (tras girar o redimensionar). */
+  purgeOldTextures() {
+    const keep = '_' + this.gemPx;
+    for (const key of this.textures.getTextureKeys()) {
+      if (/^gem\d+_\d+$/.test(key) && !key.endsWith(keep)) this.textures.remove(key);
+    }
   }
 
   /** Centro de una casilla en píxeles. */
@@ -114,14 +131,14 @@ class GameScene extends Phaser.Scene {
     const { cell, ox, oy } = this;
     const W = cell * GAME_CONFIG.COLS;
     const H = cell * GAME_CONFIG.ROWS;
-    const pad = Math.max(4, cell * 0.08);
+    const pad = Math.max(4 * this.dpr, cell * 0.08);
 
     // Resplandor y panel
     g.fillStyle(this.themeColor('--accent'), 0.18);
     g.fillRoundedRect(ox - pad - 4, oy - pad - 4, W + pad * 2 + 8, H + pad * 2 + 8, cell * 0.3);
     g.fillStyle(this.themeColor('--board'), 0.95);
     g.fillRoundedRect(ox - pad, oy - pad, W + pad * 2, H + pad * 2, cell * 0.26);
-    g.lineStyle(2, this.themeColor('--accent2'), 0.55);
+    g.lineStyle(2 * this.dpr, this.themeColor('--accent2'), 0.55);
     g.strokeRoundedRect(ox - pad, oy - pad, W + pad * 2, H + pad * 2, cell * 0.26);
 
     // Casillas en damero
@@ -130,7 +147,8 @@ class GameScene extends Phaser.Scene {
     for (let r = 0; r < GAME_CONFIG.ROWS; r++) {
       for (let c = 0; c < GAME_CONFIG.COLS; c++) {
         g.fillStyle((r + c) % 2 === 0 ? a : b, 1);
-        g.fillRoundedRect(ox + c * cell + 2, oy + r * cell + 2, cell - 4, cell - 4, cell * 0.16);
+        g.fillRoundedRect(ox + c * cell + 2 * this.dpr, oy + r * cell + 2 * this.dpr,
+          cell - 4 * this.dpr, cell - 4 * this.dpr, cell * 0.16);
       }
     }
   }
@@ -149,7 +167,7 @@ class GameScene extends Phaser.Scene {
       const x = ((seed * 1.7 + time * (0.012 + (i % 4) * 0.004)) % (w + 40)) - 20;
       const y = (h * ((seed * 0.37) % 1) + Math.sin(time / 900 + i) * 18 + h) % h;
       g.fillStyle(i % 2 === 0 ? colorA : colorB, 0.055 + (i % 3) * 0.015);
-      g.fillCircle(x, y, 1.5 + (i % 4));
+      g.fillCircle(x, y, (1.5 + (i % 4)) * (this.dpr || 1));
     }
   }
 
@@ -163,18 +181,18 @@ class GameScene extends Phaser.Scene {
   drawSelection() {
     const g = this.overlayGfx;
     g.clear();
-    const inset = 3;
+    const inset = 3 * this.dpr;
     if (this.selected) {
       const p = this.cellPos(this.selected.r, this.selected.c);
-      g.lineStyle(Math.max(3, this.cell * 0.06), 0xffffff, 1);
+      g.lineStyle(Math.max(3 * this.dpr, this.cell * 0.06), 0xffffff, 1);
       g.strokeRoundedRect(p.x - this.cell / 2 + inset, p.y - this.cell / 2 + inset,
         this.cell - inset * 2, this.cell - inset * 2, this.cell * 0.18);
     }
     if (this.cursorVisible) {
       const p = this.cellPos(this.cursor.r, this.cursor.c);
-      g.lineStyle(Math.max(3, this.cell * 0.05), this.themeColor('--accent2'), 1);
-      g.strokeRoundedRect(p.x - this.cell / 2 + inset + 2, p.y - this.cell / 2 + inset + 2,
-        this.cell - inset * 2 - 4, this.cell - inset * 2 - 4, this.cell * 0.15);
+      g.lineStyle(Math.max(3 * this.dpr, this.cell * 0.05), this.themeColor('--accent2'), 1);
+      g.strokeRoundedRect(p.x - this.cell / 2 + inset + 2 * this.dpr, p.y - this.cell / 2 + inset + 2 * this.dpr,
+        this.cell - inset * 2 - 4 * this.dpr, this.cell - inset * 2 - 4 * this.dpr, this.cell * 0.15);
     }
   }
 
@@ -255,7 +273,7 @@ class GameScene extends Phaser.Scene {
 
   createSprite(type, r, c, y) {
     const p = this.cellPos(r, c);
-    const sp = this.add.image(p.x, y !== undefined ? y : p.y, 'gem' + type);
+    const sp = this.add.image(p.x, y !== undefined ? y : p.y, gemTextureKey(type, this.gemPx));
     sp.setScale(this.gemScale).setDepth(10);
     sp.gemType = type;
     return sp;
@@ -587,8 +605,8 @@ class GameScene extends Phaser.Scene {
      Efectos visuales
      --------------------------------------------------------- */
   burst(x, y, color) {
-    const ring = this.add.circle(x, y, Math.max(8, this.cell * 0.18), color, 0)
-      .setStrokeStyle(Math.max(2, this.cell * 0.055), color, 0.9)
+    const ring = this.add.circle(x, y, Math.max(8 * this.dpr, this.cell * 0.18), color, 0)
+      .setStrokeStyle(Math.max(2 * this.dpr, this.cell * 0.055), color, 0.9)
       .setDepth(29).setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({
       targets: ring,
@@ -626,7 +644,7 @@ class GameScene extends Phaser.Scene {
       fontStyle: 'bold',
       color: color || '#ffffff',
       stroke: '#1a0b3a',
-      strokeThickness: Math.max(3, Math.round(this.cell * 0.08)),
+      strokeThickness: Math.max(3 * this.dpr, Math.round(this.cell * 0.08)),
       align: 'center'
     }).setOrigin(0.5).setDepth(100);
     t.setScale(0.6);

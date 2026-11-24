@@ -5,7 +5,8 @@
 const GAME_CONFIG = Object.freeze({
   ROWS: 8,                 // filas del tablero
   COLS: 8,                 // columnas del tablero
-  GEM_TEXTURE_SIZE: 256,   // textura retina optimizada para nitidez y rendimiento en celulares
+  MAX_DPR: 3,              // densidad de píxeles máxima a la que se renderiza el canvas
+  MAX_GEM_TEXTURE: 512,    // tope del tamaño (px) de la textura de cada gema
   SPARK_TEXTURE_SIZE: 128, // textura retina para partículas
   BASE_TYPES: 5,           // tipos de gema al empezar
   MAX_TYPES: 6,            // tipos de gema máximos
@@ -35,3 +36,8 @@ const THEMES = [
   { id: 'dulce',  name: '🍬 Dulce'  },
   { id: 'oceano', name: '🌊 Océano' }
 ];
+
+/** Densidad de píxeles de la pantalla (2-3 en celulares), limitada por MAX_DPR. */
+function getGameDpr() {
+  return Math.max(1, Math.min(window.devicePixelRatio || 1, GAME_CONFIG.MAX_DPR));
+}

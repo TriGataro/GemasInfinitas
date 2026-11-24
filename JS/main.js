@@ -3,8 +3,21 @@
    ============================================================ */
 
 (function () {
-  // Phaser en modo RESIZE: el canvas ocupa todo el contenedor #game,
-  // así se adapta a computador, celular y cambios de orientación.
+  const parent = document.getElementById('game');
+
+  /** Tamaño del contenedor en píxeles CSS. */
+  const cssSize = () => ({
+    w: Math.max(1, Math.round(parent.clientWidth || window.innerWidth)),
+    h: Math.max(1, Math.round(parent.clientHeight || window.innerHeight))
+  });
+
+  // Nitidez en celulares: el canvas se crea con (tamaño CSS × devicePixelRatio)
+  // píxeles reales y se muestra reducido (zoom = 1/dpr) al tamaño CSS del contenedor.
+  // Así cada píxel del canvas coincide con un píxel físico de la pantalla.
+  // (La opción `resolution` ya no existe en Phaser 3.60+/4, por eso se hace a mano.)
+  const dpr = getGameDpr();
+  const size = cssSize();
+
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
@@ -12,18 +25,17 @@
     disableContextMenu: true,
     antialias: true,
     roundPixels: false,
-    resolution: Math.min(window.devicePixelRatio || 1, 3),
     render: {
       antialias: true,
       antialiasGL: true,
       roundPixels: false,
-      mipmapFilter: 'LINEAR',
       powerPreference: 'high-performance'
     },
     scale: {
-      mode: Phaser.Scale.RESIZE,
-      width: '100%',
-      height: '100%'
+      mode: Phaser.Scale.NONE,
+      width: Math.round(size.w * dpr),
+      height: Math.round(size.h * dpr),
+      zoom: 1 / dpr
     },
     scene: [GameScene]
   });
@@ -31,10 +43,21 @@
   UI.init(game);
   Controls.init(game);
 
-  // Al girar la pantalla se vuelve a medir el contenedor
-  const refresh = () => {
-    setTimeout(() => { if (game.scale) game.scale.refresh(); }, 250);
+  // Ajusta el canvas al contenedor (cambio de ventana, giro de pantalla o de zoom/dpr)
+  let lastW = 0, lastH = 0, lastDpr = 0;
+  const fit = () => {
+    if (!game.scale) return;
+    const d = getGameDpr();
+    const s = cssSize();
+    const w = Math.round(s.w * d);
+    const h = Math.round(s.h * d);
+    if (w === lastW && h === lastH && d === lastDpr) return;
+    lastW = w; lastH = h; lastDpr = d;
+    if (typeof game.scale.setZoom === 'function') game.scale.setZoom(1 / d);
+    game.scale.resize(w, h);
   };
-  window.addEventListener('orientationchange', refresh);
-  window.addEventListener('resize', refresh);
+
+  if (typeof ResizeObserver === 'function') new ResizeObserver(fit).observe(parent);
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', () => setTimeout(fit, 250));
 })();

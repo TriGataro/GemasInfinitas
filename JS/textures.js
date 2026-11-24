@@ -727,14 +727,24 @@ function drawGem(ctx, style) {
   ctx.restore();
 }
 
-/** Crea las texturas 'gem0'...'gemN' y 'spark' en el gestor de texturas de Phaser. */
-function createGemTextures(scene) {
-  const gemSize = GAME_CONFIG.GEM_TEXTURE_SIZE;
+/** Clave de la textura de una gema para un tamaño dado en píxeles reales. */
+function gemTextureKey(type, size) {
+  return 'gem' + type + '_' + size;
+}
+
+/**
+ * Crea las texturas de las gemas con el tamaño EXACTO (en píxeles del canvas)
+ * al que se van a mostrar. Así cada píxel de la textura cae sobre un píxel de
+ * la pantalla (1:1) y no hay reescalado borroso ni brillos que parpadean.
+ * También crea la chispa 'spark' una sola vez.
+ */
+function createGemTextures(scene, size) {
+  const gemSize = size;
   const gemScale = gemSize / 128;
   const sparkSize = GAME_CONFIG.SPARK_TEXTURE_SIZE;
 
   GEM_STYLES.forEach((style, i) => {
-    const key = 'gem' + i;
+    const key = gemTextureKey(i, size);
     if (scene.textures.exists(key)) return;
     const tex = scene.textures.createCanvas(key, gemSize, gemSize);
     const ctx = tex.getContext();

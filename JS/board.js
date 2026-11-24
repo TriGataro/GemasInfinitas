@@ -9,6 +9,7 @@ class Board {
     this.cols = cols;
     this.types = GAME_CONFIG.BASE_TYPES;
     this.grid = [];
+    this.specials = [];
   }
 
   /** Tipo de gema aleatorio según los tipos activos. */
@@ -24,8 +25,10 @@ class Board {
   reset() {
     do {
       this.grid = [];
+      this.specials = [];
       for (let r = 0; r < this.rows; r++) {
         const row = [];
+        const specialRow = [];
         for (let c = 0; c < this.cols; c++) {
           let t;
           do {
@@ -35,8 +38,10 @@ class Board {
             (r >= 2 && this.grid[r - 1][c] === t && this.grid[r - 2][c] === t)
           );
           row.push(t);
+          specialRow.push(null);
         }
         this.grid.push(row);
+        this.specials.push(specialRow);
       }
     } while (!this.findMove());
   }
@@ -46,6 +51,9 @@ class Board {
     const t = this.grid[a.r][a.c];
     this.grid[a.r][a.c] = this.grid[b.r][b.c];
     this.grid[b.r][b.c] = t;
+    const special = this.specials[a.r][a.c];
+    this.specials[a.r][a.c] = this.specials[b.r][b.c];
+    this.specials[b.r][b.c] = special;
   }
 
   /**
@@ -56,6 +64,7 @@ class Board {
     const g = this.grid;
     const mark = g.map(row => row.map(() => false));
     const runs = [];
+    const groups = [];
 
     // Horizontales
     for (let r = 0; r < this.rows; r++) {
@@ -65,8 +74,13 @@ class Board {
         let e = c + 1;
         while (e < this.cols && g[r][e] === t) e++;
         if (t >= 0 && e - c >= 3) {
-          for (let k = c; k < e; k++) mark[r][k] = true;
+          const cells = [];
+          for (let k = c; k < e; k++) {
+            mark[r][k] = true;
+            cells.push({ r, c: k });
+          }
           runs.push(e - c);
+          groups.push({ axis: 'row', cells, length: e - c });
         }
         c = e;
       }
@@ -79,8 +93,13 @@ class Board {
         let e = r + 1;
         while (e < this.rows && g[e][c] === t) e++;
         if (t >= 0 && e - r >= 3) {
-          for (let k = r; k < e; k++) mark[k][c] = true;
+          const cells = [];
+          for (let k = r; k < e; k++) {
+            mark[k][c] = true;
+            cells.push({ r: k, c });
+          }
           runs.push(e - r);
+          groups.push({ axis: 'col', cells, length: e - r });
         }
         r = e;
       }
@@ -92,7 +111,7 @@ class Board {
         if (mark[r][c]) cells.push({ r, c });
       }
     }
-    return { cells, runs };
+    return { cells, runs, groups };
   }
 
   /**
@@ -102,6 +121,7 @@ class Board {
    */
   collapse() {
     const g = this.grid;
+    const s = this.specials;
     const moves = [];
     const spawns = [];
     for (let c = 0; c < this.cols; c++) {
@@ -111,7 +131,9 @@ class Board {
           if (r !== w) {
             g[w][c] = g[r][c];
             g[r][c] = -1;
-            moves.push({ c, from: r, to: w });
+            s[w][c] = s[r][c];
+            s[r][c] = null;
+            moves.push({ c, from: r, to: w, special: s[w][c] });
           }
           w--;
         }
@@ -120,6 +142,7 @@ class Board {
       for (let r = w; r >= 0; r--) {
         const type = this.randomType();
         g[r][c] = type;
+        s[r][c] = null;
         spawns.push({ c, r, type, from: r - n });
       }
     }
@@ -149,6 +172,7 @@ class Board {
   /** Mezcla las gemas hasta tener un tablero jugable sin combinaciones. */
   shuffle() {
     const flat = this.grid.flat();
+    this.specials = this.grid.map(row => row.map(() => null));
     for (let attempt = 0; attempt < 200; attempt++) {
       for (let i = flat.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -164,13 +188,20 @@ class Board {
   }
 
   /** Carga un tablero guardado; devuelve false si los datos no son válidos. */
-  load(grid) {
+  load(grid, specials) {
     if (!Array.isArray(grid) || grid.length !== this.rows) return false;
-    for (const row of grid) {
+    this.specials = [];
+    for (let r = 0; r < grid.length; r++) {
+      const row = grid[r];
       if (!Array.isArray(row) || row.length !== this.cols) return false;
-      for (const t of row) {
+      const specialRow = [];
+      for (let c = 0; c < row.length; c++) {
+        const t = row[c];
         if (!Number.isInteger(t) || t < 0 || t >= GAME_CONFIG.MAX_TYPES) return false;
+        const special = specials && Array.isArray(specials[r]) ? specials[r][c] : null;
+        specialRow.push(['row', 'col', 'area'].includes(special) ? special : null);
       }
+      this.specials.push(specialRow);
     }
     this.grid = grid.map(row => row.slice());
     return this.findMatches().cells.length === 0 && !!this.findMove();

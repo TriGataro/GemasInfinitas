@@ -732,6 +732,11 @@ function gemTextureKey(type, size) {
   return 'gem' + type + '_' + size;
 }
 
+/** Clave de una gema explosiva: conserva el tipo y añade su efecto. */
+function explosiveGemTextureKey(type, special, size) {
+  return 'gem' + type + '_' + special + '_' + size;
+}
+
 /**
  * Crea las texturas de las gemas con el tamaño EXACTO (en píxeles del canvas)
  * al que se van a mostrar. Así cada píxel de la textura cae sobre un píxel de
@@ -754,6 +759,39 @@ function createGemTextures(scene, size) {
     drawGem(ctx, style);
     tex.refresh();
     tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+
+    ['row', 'col', 'area'].forEach(special => {
+      const specialKey = explosiveGemTextureKey(i, special, size);
+      if (scene.textures.exists(specialKey)) return;
+      const specialTex = scene.textures.createCanvas(specialKey, gemSize, gemSize);
+      const specialCtx = specialTex.getContext();
+      specialCtx.imageSmoothingEnabled = true;
+      specialCtx.imageSmoothingQuality = 'high';
+      specialCtx.scale(gemScale, gemScale);
+      drawGem(specialCtx, style);
+      specialCtx.save();
+      specialCtx.strokeStyle = '#ffffff';
+      specialCtx.fillStyle = '#ffffff';
+      specialCtx.lineWidth = 7;
+      specialCtx.beginPath();
+      if (special === 'row') {
+        specialCtx.moveTo(22, 64); specialCtx.lineTo(106, 64);
+      } else if (special === 'col') {
+        specialCtx.moveTo(64, 22); specialCtx.lineTo(64, 106);
+      } else {
+        specialCtx.arc(64, 64, 19, 0, Math.PI * 2);
+        specialCtx.fillStyle = '#ffffff';
+        specialCtx.globalAlpha = 0.85;
+        specialCtx.beginPath();
+        specialCtx.arc(64, 64, 11, 0, Math.PI * 2);
+        specialCtx.fill();
+      }
+      specialCtx.globalAlpha = 1;
+      specialCtx.stroke();
+      specialCtx.restore();
+      specialTex.refresh();
+      specialTex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    });
   });
 
   // Chispa brillante de 4 puntas para partículas de explosión y combo

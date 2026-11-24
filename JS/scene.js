@@ -92,7 +92,10 @@ class GameScene extends Phaser.Scene {
       for (let c = 0; c < this.sprites[r].length; c++) {
         const sp = this.sprites[r][c];
         if (!sp) continue;
-        sp.setTexture(gemTextureKey(sp.gemType, this.gemPx));
+        sp.gemSpecial = this.board.specials[r][c];
+        sp.setTexture(sp.gemSpecial
+          ? explosiveGemTextureKey(sp.gemType, sp.gemSpecial, this.gemPx)
+          : gemTextureKey(sp.gemType, this.gemPx));
         const p = this.cellPos(r, c);
         sp.setPosition(p.x, p.y);
         sp.setScale(this.gemScale);
@@ -106,7 +109,7 @@ class GameScene extends Phaser.Scene {
   purgeOldTextures() {
     const keep = '_' + this.gemPx;
     for (const key of this.textures.getTextureKeys()) {
-      if (/^gem\d+_\d+$/.test(key) && !key.endsWith(keep)) this.textures.remove(key);
+      if (/^gem\d+(_(row|col|area))?_\d+$/.test(key) && !key.endsWith(keep)) this.textures.remove(key);
     }
   }
 
@@ -215,7 +218,7 @@ class GameScene extends Phaser.Scene {
   loadGame(data) {
     if (!data || typeof data.score !== 'number') return false;
     this.board.types = Math.min(GAME_CONFIG.MAX_TYPES, Math.max(GAME_CONFIG.BASE_TYPES, data.types | 0));
-    if (!this.board.load(data.grid)) return false;
+    if (!this.board.load(data.grid, data.specials)) return false;
     this.resetRuntime();
     this.score = data.score;
     this.moves = data.moves | 0;
@@ -228,6 +231,7 @@ class GameScene extends Phaser.Scene {
   saveGame() {
     Store.set('game', {
       grid: this.board.grid,
+      specials: this.board.specials,
       score: this.score,
       moves: this.moves,
       types: this.board.types
@@ -273,9 +277,14 @@ class GameScene extends Phaser.Scene {
 
   createSprite(type, r, c, y) {
     const p = this.cellPos(r, c);
-    const sp = this.add.image(p.x, y !== undefined ? y : p.y, gemTextureKey(type, this.gemPx));
+    const special = this.board.specials[r][c];
+    const key = special
+      ? explosiveGemTextureKey(type, special, this.gemPx)
+      : gemTextureKey(type, this.gemPx);
+    const sp = this.add.image(p.x, y !== undefined ? y : p.y, key);
     sp.setScale(this.gemScale).setDepth(10);
     sp.gemType = type;
+    sp.gemSpecial = special;
     return sp;
   }
 
@@ -487,7 +496,7 @@ class GameScene extends Phaser.Scene {
 
     this.moves++;
     this.emitStats();
-    await this.resolve();
+    await this.resolve(a, b);
     if (gen !== this.gen) return;
     this.saveGame();
     this.busy = false;
@@ -495,7 +504,7 @@ class GameScene extends Phaser.Scene {
   }
 
   /** Resuelve combinaciones en cadena hasta que el tablero queda estable. */
-  async resolve() {
+  async resolve(originA, originB) {
     const gen = this.gen;
     let combo = 0;
 
@@ -504,27 +513,84 @@ class GameScene extends Phaser.Scene {
       if (m.cells.length === 0) break;
       combo++;
 
+      // Crea joyas explosivas en líneas largas.
+      // 5+: área; 4: fila o columna según la dirección de la línea.
+      let keepCenter = null;
+      if (combo === 1) {
+        let group = null;
+        for (const candidate of m.groups) {
+          if (!group || candidate.length > group.length) group = candidate;
+        }
+        if (group && group.length >= 4) {
+          const origins = [originA, originB].filter(Boolean);
+          keepCenter = origins.find(q => group.cells.some(c => c.r === q.r && c.c === q.c))
+            || group.cells[Math.floor(group.cells.length / 2)];
+
+          let special = group.axis === 'row' ? 'row' : 'col';
+          if (group.length >= 5) special = 'area';
+          else {
+            const intersection = m.groups.filter(g => g.cells.some(c =>
+              c.r === keepCenter.r && c.c === keepCenter.c));
+            if (intersection.length > 1) special = 'area';
+          }
+
+          this.board.specials[keepCenter.r][keepCenter.c] = special;
+          const sp = this.sprites[keepCenter.r][keepCenter.c];
+          if (sp) {
+            sp.gemSpecial = special;
+            sp.setTexture(explosiveGemTextureKey(sp.gemType, special, this.gemPx));
+            sp.setScale(this.gemScale * 1.18);
+            this.tweens.add({ targets: sp, scale: this.gemScale, duration: 220, ease: 'Back.easeOut' });
+          }
+        }
+      }
+
+      // Las joyas ya existentes activadas hacen explotar toda su área.
+      const removeMap = new Map();
+      const addRemove = (r, c) => {
+        if (this.board.inBounds(r, c)) removeMap.set(r + ':' + c, { r, c });
+      };
+      for (const q of m.cells) addRemove(q.r, q.c);
+      for (const q of m.cells) {
+        if (keepCenter && q.r === keepCenter.r && q.c === keepCenter.c) continue;
+        const special = this.board.specials[q.r][q.c];
+        if (!special) continue;
+        if (special === 'row') {
+          for (let c = 0; c < this.board.cols; c++) addRemove(q.r, c);
+        } else if (special === 'col') {
+          for (let r = 0; r < this.board.rows; r++) addRemove(r, q.c);
+        } else if (special === 'area') {
+          for (let r = q.r - 1; r <= q.r + 1; r++) {
+            for (let c = q.c - 1; c <= q.c + 1; c++) addRemove(r, c);
+          }
+        }
+      }
+      if (keepCenter) addRemove(keepCenter.r, keepCenter.c);
+      const popCells = Array.from(removeMap.values()).filter(q =>
+        !(keepCenter && q.r === keepCenter.r && q.c === keepCenter.c));
+
       // Puntos: 10 por gema, bonus por líneas largas, multiplicado por la cadena
-      let pts = m.cells.length * 10;
+      let pts = popCells.length * 10;
       for (const len of m.runs) pts += (len - 3) * 25;
       pts *= combo;
       this.addScore(pts);
 
       // Texto flotante en el centro de la combinación
-      const cx = m.cells.reduce((s, q) => s + this.cellPos(q.r, q.c).x, 0) / m.cells.length;
-      const cy = m.cells.reduce((s, q) => s + this.cellPos(q.r, q.c).y, 0) / m.cells.length;
+      const cx = popCells.reduce((s, q) => s + this.cellPos(q.r, q.c).x, 0) / popCells.length;
+      const cy = popCells.reduce((s, q) => s + this.cellPos(q.r, q.c).y, 0) / popCells.length;
       this.floatText(cx, cy, '+' + pts, 0.45);
       if (combo > 1) this.floatText(cx, cy - this.cell * 0.7, '¡Combo x' + combo + '!', 0.5, '#ffe14d');
-      if (combo >= 3 || m.cells.length >= 5) this.cameras.main.shake(170, 0.005);
+      if (combo >= 3 || popCells.length >= 5) this.cameras.main.shake(170, 0.005);
       Sound.pop(combo);
       if (combo > 1) Sound.combo(combo);
 
       // Explosión
       const pops = [];
-      for (const q of m.cells) {
+      for (const q of popCells) {
         const sp = this.sprites[q.r][q.c];
         this.sprites[q.r][q.c] = null;
         this.board.grid[q.r][q.c] = -1;
+        this.board.specials[q.r][q.c] = null;
         if (sp) pops.push(this.popSprite(sp));
       }
       await Promise.all(pops);
@@ -537,6 +603,12 @@ class GameScene extends Phaser.Scene {
         const sp = this.sprites[mv.from][mv.c];
         this.sprites[mv.from][mv.c] = null;
         this.sprites[mv.to][mv.c] = sp;
+        if (sp) {
+          sp.gemSpecial = mv.special;
+          sp.setTexture(sp.gemSpecial
+            ? explosiveGemTextureKey(sp.gemType, sp.gemSpecial, this.gemPx)
+            : gemTextureKey(sp.gemType, this.gemPx));
+        }
         falls.push(this.moveTo(sp, mv.to, mv.c,
           GAME_CONFIG.FALL_MS * (mv.to - mv.from) + 60, 'Quad.easeIn'));
       }
